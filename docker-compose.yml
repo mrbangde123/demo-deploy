@@ -1,0 +1,83 @@
+services:
+  # ===== MySQL =====
+  mysql:
+    image: mysql:8.0
+    container_name: demo-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: demo
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - demo-net
+
+  # ===== Redis =====
+  redis:
+    image: redis:7-alpine
+    container_name: demo-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass redis123456
+    networks:
+      - demo-net
+
+  # ===== 主服务 =====
+  backend-main:
+    build:
+      context: ../demo-backend-main
+      dockerfile: Dockerfile
+    container_name: demo-backend-main
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - demo-net
+
+  # ===== Client 微服务 =====
+  backend-client:
+    build:
+      context: ../demo-backend-client
+      dockerfile: Dockerfile
+    container_name: demo-backend-client
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    networks:
+      - demo-net
+
+  # ===== 前端 =====
+  frontend:
+    build:
+      context: ../demo-frontend
+      dockerfile: Dockerfile
+    container_name: demo-frontend
+    networks:
+      - demo-net
+
+  # ===== Nginx 网关 =====
+  nginx:
+    image: nginx:alpine
+    container_name: demo-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend-main
+      - frontend
+    networks:
+      - demo-net
+
+networks:
+  demo-net:
+    driver: bridge
+
+volumes:
+  mysql-data:
